@@ -25,7 +25,16 @@ string route = statusLine?.Split(" ")?[1].Trim()!;
 
 Console.WriteLine("THIS IS MY data: {0}", data);
 
-if (route.Contains("/echo/"))
+if (route == "/user-agent")
+{
+  var userAgent = reqDataChunks?[2].Replace("User-Agent: ", "");
+  socket.Send(Encoding.UTF8.GetBytes(
+    "HTTP/1.1 200 OK\r\n" +
+    $"Content-Type: text/plain\r\nContent-Length: {userAgent?.Length}\r\n\r\n" +
+    userAgent
+  ));
+}
+else if (route.Contains("/echo/"))
 {
   var responseString = route.Replace("/echo/", "");
   socket.Send(Encoding.UTF8.GetBytes(
