@@ -13,16 +13,32 @@ var socket = server.AcceptSocket(); // wait for client
 Byte[] bytes = new Byte[256];
 socket.Receive(bytes);
 
-var data = Encoding.UTF8.GetString(bytes);
-var route = data?.Split("\r\n")?[0].Split(" ")?[1].Trim();
+var data = Encoding.UTF8.GetString(bytes) ?? "";
 
-Console.WriteLine("THIS IS MY ROUTE: {0}", route);
+var reqDataChunks = data?.Split("\r\n");
 
-if (route == "/")
+// Status line like GET /echo/abc HTTP/1.1
+var statusLine = reqDataChunks?[0];
+
+// Route from status line like /echo/abc
+string route = statusLine?.Split(" ")?[1].Trim()!;
+
+Console.WriteLine("THIS IS MY data: {0}", data);
+
+if (route.Contains("/echo/"))
 {
-  socket.Send(Encoding.UTF8.GetBytes($"HTTP/1.1 200 OK\r\n\r\n"));
+  var responseString = route.Replace("/echo/", "");
+  socket.Send(Encoding.UTF8.GetBytes(
+    "HTTP/1.1 200 OK\r\n" +
+    $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\n\r\n" +
+    responseString
+  ));
+}
+else if (route == "/")
+{
+  socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 200 OK\r\n\r\n"));
 }
 else
 {
-  socket.Send(Encoding.UTF8.GetBytes($"HTTP/1.1 404 Not Found\r\n\r\n"));
+  socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 404 Not Found\r\n\r\n"));
 }
