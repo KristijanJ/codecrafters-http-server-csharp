@@ -41,6 +41,21 @@ try
     else if (route.StartsWith("/echo/"))
     {
       var responseString = route.Replace("/echo/", "");
+      var encodingHeader = reqDataChunks?.Where(x => x.StartsWith("Accept-Encoding:")).FirstOrDefault("");
+      Console.WriteLine($"Encoding Header: {encodingHeader}");
+
+      var contentEncoding = encodingHeader?.Contains("gzip") == true;
+
+      if (contentEncoding)
+      {
+        socket.Send(Encoding.UTF8.GetBytes(
+          "HTTP/1.1 200 OK\r\n" +
+          $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\nContent-Encoding: gzip\r\n\r\n" +
+          responseString
+        ));
+
+      }
+
       socket.Send(Encoding.UTF8.GetBytes(
         "HTTP/1.1 200 OK\r\n" +
         $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\n\r\n" +
