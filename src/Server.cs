@@ -10,4 +10,19 @@ TcpListener server = new TcpListener(IPAddress.Any, 4221);
 server.Start();
 var socket = server.AcceptSocket(); // wait for client
 
-socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 200 OK\r\n\r\n"));
+Byte[] bytes = new Byte[256];
+socket.Receive(bytes);
+
+var data = Encoding.UTF8.GetString(bytes);
+var route = data?.Split("\r\n")?[0].Split(" ")?[1].Trim();
+
+Console.WriteLine("THIS IS MY ROUTE: {0}", route);
+
+if (route == "/")
+{
+  socket.Send(Encoding.UTF8.GetBytes($"HTTP/1.1 200 OK\r\n\r\n"));
+}
+else
+{
+  socket.Send(Encoding.UTF8.GetBytes($"HTTP/1.1 404 Not Found\r\n\r\n"));
+}
