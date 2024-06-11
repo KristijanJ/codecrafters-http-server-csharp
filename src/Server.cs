@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -40,7 +41,7 @@ try
     }
     else if (route.StartsWith("/echo/"))
     {
-      var responseString = route.Replace("/echo/", "");
+      var responseString = route.Replace("/echo/", "").Trim();
       var encodingHeader = reqDataChunks?.Where(x => x.StartsWith("Accept-Encoding:")).FirstOrDefault("");
       Console.WriteLine($"Encoding Header: {encodingHeader}");
 
@@ -48,19 +49,31 @@ try
 
       if (contentEncoding)
       {
+        byte[] responseBytes = Encoding.UTF8.GetBytes(responseString);
+
+        using var outputStream = new MemoryStream();
+        using var gZipStream = new GZipStream(outputStream, CompressionMode.Compress, true);
+        gZipStream.Write(responseBytes, 0, responseBytes.Length);
+        gZipStream.Flush();
+        gZipStream.Close();
+
+        byte[] compressed = outputStream.ToArray();
+
+        var compressedResponse = $"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: {compressed.Length}\r\n\r\n";
+        byte[] response = [..Encoding.UTF8.GetBytes(compressedResponse), ..compressed];
+
+        socket.Send(response);
+      }
+      else
+      {
         socket.Send(Encoding.UTF8.GetBytes(
           "HTTP/1.1 200 OK\r\n" +
-          $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\nContent-Encoding: gzip\r\n\r\n" +
+          $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\n\r\n" +
           responseString
         ));
 
       }
 
-      socket.Send(Encoding.UTF8.GetBytes(
-        "HTTP/1.1 200 OK\r\n" +
-        $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\n\r\n" +
-        responseString
-      ));
     }
     else if (route.StartsWith("/files/"))
     {
