@@ -38,7 +38,7 @@ try
         userAgent
       ));
     }
-    else if (route.Contains("/echo/"))
+    else if (route.StartsWith("/echo/"))
     {
       var responseString = route.Replace("/echo/", "");
       socket.Send(Encoding.UTF8.GetBytes(
@@ -46,6 +46,24 @@ try
         $"Content-Type: text/plain\r\nContent-Length: {responseString.Length}\r\n\r\n" +
         responseString
       ));
+    }
+    else if (route.StartsWith("/files/"))
+    {
+      // Get file directory
+      var fileDir = GetFileDirFromArgs();
+      try
+      {
+        var fileText = File.ReadAllText(fileDir + route.Replace("/files/", ""), Encoding.UTF8);
+        socket.Send(Encoding.UTF8.GetBytes(
+          "HTTP/1.1 200 OK\r\n" +
+          $"Content-Type: application/octet-stream\r\nContent-Length: {fileText?.Length}\r\n\r\n" +
+          fileText
+        ));
+      }
+      catch (Exception)
+      {
+        socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 404 Not Found\r\n\r\n"));
+      }
     }
     else if (route == "/")
     {
@@ -65,4 +83,16 @@ catch (SocketException e)
 finally
 {
   server.Stop();
+}
+
+string GetFileDirFromArgs()
+{
+  for (int i = 0; i < args.Length; i++)
+  {
+    if (args[i] == "--directory")
+    {
+      return args[i + 1];
+    }
+  }
+  return "";
 }
