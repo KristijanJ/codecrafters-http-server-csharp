@@ -17,7 +17,7 @@ try
     var socket = server.AcceptSocket(); // wait for client
     socket.Receive(bytes);
 
-    var data = Encoding.UTF8.GetString(bytes) ?? "";
+    var data = Encoding.UTF8.GetString(bytes).Trim('\0') ?? "";
 
     var reqDataChunks = data?.Split("\r\n");
 
@@ -50,19 +50,30 @@ try
     else if (route.StartsWith("/files/"))
     {
       // Get file directory
-      var fileDir = GetFileDirFromArgs();
-      try
+      var fileDir = GetValueFromArgs("--directory");
+      string method = statusLine?.Split(" ")?[0].Trim()!;
+      var filePath = fileDir + route.Replace("/files/", "");
+      Console.WriteLine($"{method} {fileDir}");
+
+      if (method == "GET")
       {
-        var fileText = File.ReadAllText(fileDir + route.Replace("/files/", ""), Encoding.UTF8);
-        socket.Send(Encoding.UTF8.GetBytes(
-          "HTTP/1.1 200 OK\r\n" +
-          $"Content-Type: application/octet-stream\r\nContent-Length: {fileText?.Length}\r\n\r\n" +
-          fileText
-        ));
+        if (File.Exists(filePath))
+        {
+          var fileText = File.ReadAllText(filePath, Encoding.UTF8);
+          socket.Send(Encoding.UTF8.GetBytes(
+            $"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {fileText?.Length}\r\n\r\n{fileText?.ToString()}"
+          ));
+        }
+        else
+        {
+          socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 404 Not Found\r\n\r\n"));
+        }
       }
-      catch (Exception)
+      else if (method == "POST")
       {
-        socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 404 Not Found\r\n\r\n"));
+        string requestBody = reqDataChunks?.Last().Trim()!;
+        File.WriteAllText(filePath, requestBody);
+        socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 201 Created\r\n\r\n"));
       }
     }
     else if (route == "/")
@@ -73,6 +84,8 @@ try
     {
       socket.Send(Encoding.UTF8.GetBytes("HTTP/1.1 404 Not Found\r\n\r\n"));
     }
+
+    Array.Clear(bytes, 0, bytes.Length);
   }
 }
 catch (SocketException e)
@@ -85,11 +98,11 @@ finally
   server.Stop();
 }
 
-string GetFileDirFromArgs()
+string GetValueFromArgs(string argName)
 {
   for (int i = 0; i < args.Length; i++)
   {
-    if (args[i] == "--directory")
+    if (args[i] == argName)
     {
       return args[i + 1];
     }
